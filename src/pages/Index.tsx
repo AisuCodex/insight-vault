@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { Plus, BookOpen } from "lucide-react";
+import { Plus, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
@@ -10,6 +10,7 @@ import SolutionForm from "@/components/SolutionForm";
 import SearchBar from "@/components/SearchBar";
 import AIQueryPanel from "@/components/AIQueryPanel";
 import EmptyState from "@/components/EmptyState";
+import ThemeToggle from "@/components/ThemeToggle";
 
 interface Solution {
   id: string;
@@ -177,16 +178,19 @@ const Index = () => {
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center gap-3">
               <div className="w-9 h-9 rounded-xl bg-primary flex items-center justify-center">
-                <BookOpen className="w-5 h-5 text-primary-foreground" />
+                <Zap className="w-5 h-5 text-primary-foreground" />
               </div>
               <h1 className="text-xl font-semibold text-foreground">
-                Knowledge Base
+                RTL SnapSolve
               </h1>
             </div>
-            <Button onClick={() => setIsFormOpen(true)} className="h-10 px-4">
-              <Plus className="w-4 h-4 mr-2" />
-              New Solution
-            </Button>
+            <div className="flex items-center gap-2">
+              <ThemeToggle />
+              <Button onClick={() => setIsFormOpen(true)} className="h-10 px-4">
+                <Plus className="w-4 h-4 mr-2" />
+                New Solution
+              </Button>
+            </div>
           </div>
         </div>
       </header>

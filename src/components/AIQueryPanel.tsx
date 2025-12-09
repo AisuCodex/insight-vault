@@ -115,11 +115,11 @@ const AIQueryPanel = ({ onSelectSolution }: AIQueryPanelProps) => {
             <Sparkles className="w-5 h-5 text-primary" />
           </div>
           <div className="text-left">
-            <h3 className="font-medium text-foreground">AI Assistant</h3>
+            <h3 className="font-medium text-foreground">RTLAI</h3>
             <p className="text-xs text-muted-foreground">
               {messages.length > 0 
                 ? `${messages.length} messages in conversation`
-                : "Ask questions about your solutions"
+                : "Ask me anything about your solutions"
               }
             </p>
           </div>
