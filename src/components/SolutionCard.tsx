@@ -10,6 +10,7 @@ interface SolutionCardProps {
   imageUrl?: string | null;
   createdAt: string;
   searchQuery?: string;
+  canEdit?: boolean;
   onEdit: () => void;
   onDelete: () => void;
 }
@@ -42,6 +43,7 @@ const SolutionCard = ({
   imageUrl,
   createdAt,
   searchQuery = "",
+  canEdit = false,
   onEdit,
   onDelete,
 }: SolutionCardProps) => {
@@ -96,25 +98,27 @@ const SolutionCard = ({
           {highlightText(description, searchQuery)}
         </p>
         
-        <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={onEdit}
-            className="flex-1 h-9"
-          >
-            <Edit2 className="w-3.5 h-3.5 mr-1.5" />
-            Edit
-          </Button>
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={onDelete}
-            className="h-9 text-destructive hover:text-destructive hover:bg-destructive/10"
-          >
-            <Trash2 className="w-3.5 h-3.5" />
-          </Button>
-        </div>
+        {canEdit && (
+          <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={onEdit}
+              className="flex-1 h-9"
+            >
+              <Edit2 className="w-3.5 h-3.5 mr-1.5" />
+              Edit
+            </Button>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={onDelete}
+              className="h-9 text-destructive hover:text-destructive hover:bg-destructive/10"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+            </Button>
+          </div>
+        )}
       </div>
     </div>
   );
