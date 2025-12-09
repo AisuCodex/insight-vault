@@ -25,7 +25,7 @@ interface Solution {
 
 const Index = () => {
   const navigate = useNavigate();
-  const { user, signOut } = useAuth();
+  const { user, canEdit, isAdmin, signOut } = useAuth();
   const [solutions, setSolutions] = useState<Solution[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
@@ -80,6 +80,7 @@ const Index = () => {
           title: data.title,
           description: data.description,
           image_url: data.imageUrl,
+          user_id: user?.id,
         });
 
       if (error) throw error;
@@ -190,12 +191,19 @@ const Index = () => {
             </div>
             <div className="flex items-center gap-2">
               <ThemeToggle />
-              {user ? (
+            {user ? (
                 <>
-                  <Button onClick={() => setIsFormOpen(true)} className="h-10 px-4">
-                    <Plus className="w-4 h-4 mr-2" />
-                    New Solution
-                  </Button>
+                  {canEdit && (
+                    <Button onClick={() => setIsFormOpen(true)} className="h-10 px-4">
+                      <Plus className="w-4 h-4 mr-2" />
+                      New Solution
+                    </Button>
+                  )}
+                  {isAdmin && (
+                    <Button variant="outline" onClick={() => navigate("/admin")} className="h-10 px-4">
+                      Admin
+                    </Button>
+                  )}
                   <Button variant="outline" onClick={signOut} className="h-10 px-4">
                     <LogOut className="w-4 h-4 mr-2" />
                     Sign Out
@@ -276,7 +284,7 @@ const Index = () => {
                     imageUrl={solution.image_url}
                     createdAt={solution.created_at}
                     searchQuery={searchQuery}
-                    canEdit={!!user}
+                    canEdit={canEdit}
                     onEdit={() => setEditingSolution(solution)}
                     onDelete={() => setDeletingSolution(solution)}
                   />

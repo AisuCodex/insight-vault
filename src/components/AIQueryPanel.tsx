@@ -1,9 +1,10 @@
 import { useState, useRef, useEffect } from "react";
-import { Sparkles, Send, Loader2, ChevronDown, ChevronUp, User, Bot } from "lucide-react";
+import { Sparkles, Send, Loader2, ChevronDown, ChevronUp, User, Bot, MessageSquarePlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface Solution {
@@ -26,10 +27,12 @@ interface AIQueryPanelProps {
 }
 
 const AIQueryPanel = ({ onSelectSolution }: AIQueryPanelProps) => {
+  const { user } = useAuth();
   const [query, setQuery] = useState("");
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
+  const [currentConversationId, setCurrentConversationId] = useState<string | null>(null);
   const { toast } = useToast();
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -44,8 +47,71 @@ const AIQueryPanel = ({ onSelectSolution }: AIQueryPanelProps) => {
     }
   }, [messages]);
 
+  const createConversation = async (): Promise<string | null> => {
+    if (!user) return null;
+
+    try {
+      const { data, error } = await supabase
+        .from('ai_conversations')
+        .insert({
+          user_id: user.id,
+          title: 'New Conversation',
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data.id;
+    } catch (error) {
+      console.error('Error creating conversation:', error);
+      return null;
+    }
+  };
+
+  const saveMessage = async (conversationId: string, role: 'user' | 'assistant', content: string, relevantSolutions?: Solution[]) => {
+    if (!user) return;
+
+    try {
+      await supabase.from('ai_messages').insert({
+        conversation_id: conversationId,
+        role,
+        content,
+        relevant_solutions: relevantSolutions ? JSON.stringify(relevantSolutions) : null,
+      });
+
+      // Update conversation title from first user message
+      if (role === 'user' && messages.length === 0) {
+        const title = content.length > 50 ? content.substring(0, 50) + '...' : content;
+        await supabase
+          .from('ai_conversations')
+          .update({ title, updated_at: new Date().toISOString() })
+          .eq('id', conversationId);
+      } else {
+        await supabase
+          .from('ai_conversations')
+          .update({ updated_at: new Date().toISOString() })
+          .eq('id', conversationId);
+      }
+    } catch (error) {
+      console.error('Error saving message:', error);
+    }
+  };
+
+  const handleNewConversation = () => {
+    setMessages([]);
+    setCurrentConversationId(null);
+  };
+
   const handleSubmit = async () => {
     if (!query.trim() || isLoading) return;
+
+    let convId = currentConversationId;
+    
+    // Create new conversation if needed and user is logged in
+    if (!convId && user) {
+      convId = await createConversation();
+      setCurrentConversationId(convId);
+    }
 
     const userMessage: Message = {
       id: crypto.randomUUID(),
@@ -57,6 +123,11 @@ const AIQueryPanel = ({ onSelectSolution }: AIQueryPanelProps) => {
     setMessages((prev) => [...prev, userMessage]);
     setQuery("");
     setIsLoading(true);
+
+    // Save user message
+    if (convId) {
+      saveMessage(convId, 'user', userMessage.content);
+    }
 
     try {
       const { data, error } = await supabase.functions.invoke('ai-search', {
@@ -80,6 +151,11 @@ const AIQueryPanel = ({ onSelectSolution }: AIQueryPanelProps) => {
       };
 
       setMessages((prev) => [...prev, assistantMessage]);
+
+      // Save assistant message
+      if (convId) {
+        saveMessage(convId, 'assistant', assistantMessage.content, assistantMessage.relevantSolutions);
+      }
     } catch (error: any) {
       console.error('AI search error:', error);
       toast({
@@ -133,6 +209,21 @@ const AIQueryPanel = ({ onSelectSolution }: AIQueryPanelProps) => {
 
       {isExpanded && (
         <div className="animate-fade-in flex flex-col" style={{ height: '400px' }}>
+          {/* New Conversation Button */}
+          {user && messages.length > 0 && (
+            <div className="px-4 py-2 border-b border-border/50">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleNewConversation}
+                className="w-full gap-2"
+              >
+                <MessageSquarePlus className="w-4 h-4" />
+                New Conversation
+              </Button>
+            </div>
+          )}
+
           {/* Chat Messages Area */}
           <ScrollArea ref={scrollAreaRef} className="flex-1 px-4">
             <div className="py-4 space-y-4">
