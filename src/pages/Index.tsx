@@ -1,12 +1,10 @@
 import { useState, useEffect, useMemo } from "react";
-import { useNavigate } from "react-router-dom";
-import { Plus, Zap, LogIn, LogOut } from "lucide-react";
+import { Plus, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { useAuth } from "@/hooks/useAuth";
 import SolutionCard from "@/components/SolutionCard";
 import SolutionForm from "@/components/SolutionForm";
 import SearchBar from "@/components/SearchBar";
@@ -24,8 +22,6 @@ interface Solution {
 }
 
 const Index = () => {
-  const navigate = useNavigate();
-  const { user, signOut } = useAuth();
   const [solutions, setSolutions] = useState<Solution[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
@@ -190,23 +186,10 @@ const Index = () => {
             </div>
             <div className="flex items-center gap-2">
               <ThemeToggle />
-              {user ? (
-                <>
-                  <Button onClick={() => setIsFormOpen(true)} className="h-10 px-4">
-                    <Plus className="w-4 h-4 mr-2" />
-                    New Solution
-                  </Button>
-                  <Button variant="outline" onClick={signOut} className="h-10 px-4">
-                    <LogOut className="w-4 h-4 mr-2" />
-                    Sign Out
-                  </Button>
-                </>
-              ) : (
-                <Button onClick={() => navigate("/auth")} className="h-10 px-4">
-                  <LogIn className="w-4 h-4 mr-2" />
-                  Sign In
-                </Button>
-              )}
+              <Button onClick={() => setIsFormOpen(true)} className="h-10 px-4">
+                <Plus className="w-4 h-4 mr-2" />
+                New Solution
+              </Button>
             </div>
           </div>
         </div>
@@ -276,7 +259,6 @@ const Index = () => {
                     imageUrl={solution.image_url}
                     createdAt={solution.created_at}
                     searchQuery={searchQuery}
-                    canEdit={!!user}
                     onEdit={() => setEditingSolution(solution)}
                     onDelete={() => setDeletingSolution(solution)}
                   />
