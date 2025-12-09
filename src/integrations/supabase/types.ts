@@ -14,119 +14,6 @@ export type Database = {
   }
   public: {
     Tables: {
-      ai_conversations: {
-        Row: {
-          created_at: string
-          id: string
-          title: string
-          updated_at: string
-          user_id: string
-        }
-        Insert: {
-          created_at?: string
-          id?: string
-          title?: string
-          updated_at?: string
-          user_id: string
-        }
-        Update: {
-          created_at?: string
-          id?: string
-          title?: string
-          updated_at?: string
-          user_id?: string
-        }
-        Relationships: []
-      }
-      ai_messages: {
-        Row: {
-          content: string
-          conversation_id: string
-          created_at: string
-          id: string
-          relevant_solutions: Json | null
-          role: string
-        }
-        Insert: {
-          content: string
-          conversation_id: string
-          created_at?: string
-          id?: string
-          relevant_solutions?: Json | null
-          role: string
-        }
-        Update: {
-          content?: string
-          conversation_id?: string
-          created_at?: string
-          id?: string
-          relevant_solutions?: Json | null
-          role?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "ai_messages_conversation_id_fkey"
-            columns: ["conversation_id"]
-            isOneToOne: false
-            referencedRelation: "ai_conversations"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      login_codes: {
-        Row: {
-          code: string
-          created_at: string
-          id: string
-          used: boolean
-          user_id: string
-        }
-        Insert: {
-          code: string
-          created_at?: string
-          id?: string
-          used?: boolean
-          user_id: string
-        }
-        Update: {
-          code?: string
-          created_at?: string
-          id?: string
-          used?: boolean
-          user_id?: string
-        }
-        Relationships: []
-      }
-      profiles: {
-        Row: {
-          created_at: string
-          display_name: string | null
-          email: string
-          id: string
-          status: string
-          updated_at: string
-          user_id: string
-        }
-        Insert: {
-          created_at?: string
-          display_name?: string | null
-          email: string
-          id?: string
-          status?: string
-          updated_at?: string
-          user_id: string
-        }
-        Update: {
-          created_at?: string
-          display_name?: string | null
-          email?: string
-          id?: string
-          status?: string
-          updated_at?: string
-          user_id?: string
-        }
-        Relationships: []
-      }
       solutions: {
         Row: {
           created_at: string
@@ -135,7 +22,6 @@ export type Database = {
           image_url: string | null
           title: string
           updated_at: string
-          user_id: string | null
         }
         Insert: {
           created_at?: string
@@ -144,7 +30,6 @@ export type Database = {
           image_url?: string | null
           title: string
           updated_at?: string
-          user_id?: string | null
         }
         Update: {
           created_at?: string
@@ -153,28 +38,6 @@ export type Database = {
           image_url?: string | null
           title?: string
           updated_at?: string
-          user_id?: string | null
-        }
-        Relationships: []
-      }
-      user_roles: {
-        Row: {
-          created_at: string
-          id: string
-          role: Database["public"]["Enums"]["app_role"]
-          user_id: string
-        }
-        Insert: {
-          created_at?: string
-          id?: string
-          role: Database["public"]["Enums"]["app_role"]
-          user_id: string
-        }
-        Update: {
-          created_at?: string
-          id?: string
-          role?: Database["public"]["Enums"]["app_role"]
-          user_id?: string
         }
         Relationships: []
       }
@@ -183,17 +46,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      has_role: {
-        Args: {
-          _role: Database["public"]["Enums"]["app_role"]
-          _user_id: string
-        }
-        Returns: boolean
-      }
-      is_approved: { Args: { _user_id: string }; Returns: boolean }
+      [_ in never]: never
     }
     Enums: {
-      app_role: "admin" | "user"
+      [_ in never]: never
     }
     CompositeTypes: {
       [_ in never]: never
@@ -320,8 +176,6 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {
-      app_role: ["admin", "user"],
-    },
+    Enums: {},
   },
 } as const
