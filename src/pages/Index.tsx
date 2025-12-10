@@ -1,10 +1,12 @@
 import { useState, useEffect, useMemo } from "react";
-import { Plus, Zap } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { Plus, Zap, LogOut, Shield, User as UserIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
 import SolutionCard from "@/components/SolutionCard";
 import SolutionForm from "@/components/SolutionForm";
 import SearchBar from "@/components/SearchBar";
@@ -19,6 +21,7 @@ interface Solution {
   image_url: string | null;
   created_at: string;
   updated_at: string;
+  user_id: string | null;
 }
 
 const Index = () => {
@@ -30,6 +33,15 @@ const Index = () => {
   const [deletingSolution, setDeletingSolution] = useState<Solution | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
+  const navigate = useNavigate();
+  const { user, profile, isAdmin, isApproved, isLoading: authLoading, signOut } = useAuth();
+
+  // Redirect pending users
+  useEffect(() => {
+    if (!authLoading && user && profile && !isApproved && !isAdmin) {
+      navigate("/pending");
+    }
+  }, [user, profile, isApproved, isAdmin, authLoading, navigate]);
 
   const fetchSolutions = async () => {
     try {
@@ -68,6 +80,15 @@ const Index = () => {
   }, [solutions, searchQuery]);
 
   const handleAddSolution = async (data: { title: string; description: string; imageUrl: string | null }) => {
+    if (!user) {
+      toast({
+        title: "Error",
+        description: "You must be logged in to add solutions.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       const { error } = await supabase
@@ -76,6 +97,7 @@ const Index = () => {
           title: data.title,
           description: data.description,
           image_url: data.imageUrl,
+          user_id: user.id,
         });
 
       if (error) throw error;
@@ -170,6 +192,19 @@ const Index = () => {
     }
   };
 
+  const handleSignOut = async () => {
+    await signOut();
+    navigate("/auth");
+  };
+
+  const canModifySolution = (solution: Solution) => {
+    if (!user) return false;
+    if (isAdmin) return true;
+    return solution.user_id === user.id;
+  };
+
+  const canAddSolution = user && (isApproved || isAdmin);
+
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
@@ -186,10 +221,31 @@ const Index = () => {
             </div>
             <div className="flex items-center gap-2">
               <ThemeToggle />
-              <Button onClick={() => setIsFormOpen(true)} className="h-10 px-4">
-                <Plus className="w-4 h-4 mr-2" />
-                New Solution
-              </Button>
+              {user ? (
+                <>
+                  {isAdmin && (
+                    <Button variant="outline" size="sm" onClick={() => navigate("/admin")}>
+                      <Shield className="w-4 h-4 mr-2" />
+                      Admin
+                    </Button>
+                  )}
+                  {canAddSolution && (
+                    <Button onClick={() => setIsFormOpen(true)} className="h-10 px-4">
+                      <Plus className="w-4 h-4 mr-2" />
+                      New Solution
+                    </Button>
+                  )}
+                  <Button variant="outline" size="sm" onClick={handleSignOut}>
+                    <LogOut className="w-4 h-4 mr-2" />
+                    Sign Out
+                  </Button>
+                </>
+              ) : (
+                <Button onClick={() => navigate("/auth")} className="h-10 px-4">
+                  <UserIcon className="w-4 h-4 mr-2" />
+                  Sign In
+                </Button>
+              )}
             </div>
           </div>
         </div>
@@ -238,7 +294,7 @@ const Index = () => {
               ))}
             </div>
           ) : solutions.length === 0 ? (
-            <EmptyState onAddNew={() => setIsFormOpen(true)} />
+            <EmptyState onAddNew={canAddSolution ? () => setIsFormOpen(true) : undefined} />
           ) : filteredSolutions.length === 0 ? (
             <div className="text-center py-12">
               <p className="text-muted-foreground">No solutions match your search.</p>
@@ -259,8 +315,8 @@ const Index = () => {
                     imageUrl={solution.image_url}
                     createdAt={solution.created_at}
                     searchQuery={searchQuery}
-                    onEdit={() => setEditingSolution(solution)}
-                    onDelete={() => setDeletingSolution(solution)}
+                    onEdit={canModifySolution(solution) ? () => setEditingSolution(solution) : undefined}
+                    onDelete={canModifySolution(solution) ? () => setDeletingSolution(solution) : undefined}
                   />
                 </div>
               ))}
