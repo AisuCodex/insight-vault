@@ -13,6 +13,7 @@ import SearchBar from "@/components/SearchBar";
 import AIQueryPanel from "@/components/AIQueryPanel";
 import EmptyState from "@/components/EmptyState";
 import ThemeToggle from "@/components/ThemeToggle";
+import LogoutConfirmDialog from "@/components/LogoutConfirmDialog";
 
 interface Solution {
   id: string;
@@ -32,6 +33,7 @@ const Index = () => {
   const [editingSolution, setEditingSolution] = useState<Solution | null>(null);
   const [deletingSolution, setDeletingSolution] = useState<Solution | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const { toast } = useToast();
   const navigate = useNavigate();
   const { user, profile, isAdmin, isApproved, isLoading: authLoading, signOut } = useAuth();
@@ -235,7 +237,7 @@ const Index = () => {
                       New Solution
                     </Button>
                   )}
-                  <Button variant="outline" size="sm" onClick={handleSignOut}>
+                  <Button variant="outline" size="sm" onClick={() => setShowLogoutConfirm(true)}>
                     <LogOut className="w-4 h-4 mr-2" />
                     Sign Out
                   </Button>
@@ -381,6 +383,12 @@ const Index = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <LogoutConfirmDialog
+        open={showLogoutConfirm}
+        onOpenChange={setShowLogoutConfirm}
+        onConfirm={handleSignOut}
+      />
     </div>
   );
 };

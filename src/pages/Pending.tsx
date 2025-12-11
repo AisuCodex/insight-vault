@@ -1,14 +1,16 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Clock, LogOut, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAuth } from "@/hooks/useAuth";
 import ThemeToggle from "@/components/ThemeToggle";
+import LogoutConfirmDialog from "@/components/LogoutConfirmDialog";
 
 const Pending = () => {
   const { user, profile, isAdmin, signOut, isLoading } = useAuth();
   const navigate = useNavigate();
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
 
   useEffect(() => {
     if (!isLoading) {
@@ -42,7 +44,7 @@ const Pending = () => {
             </div>
             <div className="flex items-center gap-2">
               <ThemeToggle />
-              <Button variant="outline" size="sm" onClick={handleSignOut}>
+              <Button variant="outline" size="sm" onClick={() => setShowLogoutConfirm(true)}>
                 <LogOut className="w-4 h-4 mr-2" />
                 Sign Out
               </Button>
@@ -67,13 +69,19 @@ const Pending = () => {
               Thank you for registering! An administrator will review your account shortly. 
               You'll be able to access the app once your account is approved.
             </p>
-            <Button variant="outline" onClick={handleSignOut} className="w-full">
+            <Button variant="outline" onClick={() => setShowLogoutConfirm(true)} className="w-full">
               <LogOut className="w-4 h-4 mr-2" />
               Sign Out
             </Button>
           </CardContent>
         </Card>
       </main>
+
+      <LogoutConfirmDialog
+        open={showLogoutConfirm}
+        onOpenChange={setShowLogoutConfirm}
+        onConfirm={handleSignOut}
+      />
     </div>
   );
 };

@@ -112,6 +112,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     // Generate login code for password recovery
     if (data.user) {
+      // Delete previous login codes for this user before creating a new one
+      await supabase.from("login_codes").delete().eq("user_id", data.user.id);
+      
       const loginCode = Math.random().toString(36).substring(2, 10).toUpperCase();
       await supabase.from("login_codes").insert({
         user_id: data.user.id,
