@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Zap, Eye, EyeOff, Loader2 } from "lucide-react";
+import { Zap, Eye, EyeOff, Loader2, KeyRound } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -9,6 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import ThemeToggle from "@/components/ThemeToggle";
+import { supabase } from "@/integrations/supabase/client";
 import { z } from "zod";
 
 const loginSchema = z.object({
@@ -22,6 +23,12 @@ const signupSchema = z.object({
   displayName: z.string().optional(),
 });
 
+const resetSchema = z.object({
+  email: z.string().min(1, "Email is required"),
+  resetCode: z.string().min(1, "Reset code is required"),
+  newPassword: z.string().min(6, "Password must be at least 6 characters"),
+});
+
 const Auth = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -30,6 +37,13 @@ const Auth = () => {
   const [signupEmail, setSignupEmail] = useState("");
   const [signupPassword, setSignupPassword] = useState("");
   const [displayName, setDisplayName] = useState("");
+  
+  // Reset password states
+  const [resetEmail, setResetEmail] = useState("");
+  const [resetCode, setResetCode] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [showResetPassword, setShowResetPassword] = useState(false);
+  
   const { toast } = useToast();
   const navigate = useNavigate();
   const { user, profile, isAdmin, signIn, signUp, isLoading: authLoading } = useAuth();
@@ -143,6 +157,73 @@ const Auth = () => {
     }
   };
 
+  const handleResetPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    const result = resetSchema.safeParse({ 
+      email: resetEmail, 
+      resetCode, 
+      newPassword 
+    });
+    if (!result.success) {
+      toast({
+        title: "Validation Error",
+        description: result.error.errors[0]?.message,
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      // Call the edge function to reset the password
+      const { data, error } = await supabase.functions.invoke('reset-password', {
+        body: { 
+          email: resetEmail, 
+          resetCode, 
+          newPassword 
+        }
+      });
+
+      if (error) {
+        toast({
+          title: "Error",
+          description: error.message || "Failed to reset password",
+          variant: "destructive",
+        });
+        setIsLoading(false);
+        return;
+      }
+
+      if (data?.error) {
+        toast({
+          title: "Error",
+          description: data.error,
+          variant: "destructive",
+        });
+        setIsLoading(false);
+        return;
+      }
+
+      toast({
+        title: "Success",
+        description: "Your password has been reset successfully. You can now login with your new password.",
+      });
+
+      setResetEmail("");
+      setResetCode("");
+      setNewPassword("");
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "An error occurred",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   if (authLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -177,9 +258,10 @@ const Auth = () => {
           </CardHeader>
           <CardContent>
             <Tabs defaultValue="login" className="w-full">
-              <TabsList className="grid w-full grid-cols-2">
+              <TabsList className="grid w-full grid-cols-3">
                 <TabsTrigger value="login">Login</TabsTrigger>
                 <TabsTrigger value="signup">Sign Up</TabsTrigger>
+                <TabsTrigger value="reset">Reset</TabsTrigger>
               </TabsList>
 
               <TabsContent value="login" className="mt-6">
@@ -297,6 +379,75 @@ const Auth = () => {
                   <p className="text-xs text-muted-foreground text-center">
                     Note: Your account will need admin approval before you can login.
                   </p>
+                </form>
+              </TabsContent>
+
+              <TabsContent value="reset" className="mt-6">
+                <form onSubmit={handleResetPassword} className="space-y-4">
+                  <div className="flex items-center gap-2 p-3 rounded-lg bg-muted/50 mb-4">
+                    <KeyRound className="w-4 h-4 text-muted-foreground" />
+                    <p className="text-xs text-muted-foreground">
+                      Enter your email and the reset code provided by your admin to reset your password.
+                    </p>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="reset-email">Email</Label>
+                    <Input
+                      id="reset-email"
+                      type="text"
+                      placeholder="Enter your email"
+                      value={resetEmail}
+                      onChange={(e) => setResetEmail(e.target.value)}
+                      disabled={isLoading}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="reset-code">Reset Code</Label>
+                    <Input
+                      id="reset-code"
+                      type="text"
+                      placeholder="Enter your reset code"
+                      value={resetCode}
+                      onChange={(e) => setResetCode(e.target.value)}
+                      disabled={isLoading}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="new-password">New Password</Label>
+                    <div className="relative">
+                      <Input
+                        id="new-password"
+                        type={showResetPassword ? "text" : "password"}
+                        placeholder="Enter new password"
+                        value={newPassword}
+                        onChange={(e) => setNewPassword(e.target.value)}
+                        disabled={isLoading}
+                      />
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="absolute right-0 top-0 h-full"
+                        onClick={() => setShowResetPassword(!showResetPassword)}
+                      >
+                        {showResetPassword ? (
+                          <EyeOff className="w-4 h-4" />
+                        ) : (
+                          <Eye className="w-4 h-4" />
+                        )}
+                      </Button>
+                    </div>
+                  </div>
+                  <Button type="submit" className="w-full" disabled={isLoading}>
+                    {isLoading ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Verifying...
+                      </>
+                    ) : (
+                      "Reset Password"
+                    )}
+                  </Button>
                 </form>
               </TabsContent>
             </Tabs>
