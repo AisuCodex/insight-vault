@@ -19,3 +19,6 @@ api_url = "http://localhost"
 
 [functions.ai-search]
 verify_jwt = false
+
+[functions.reset-password]
+verify_jwt = false
