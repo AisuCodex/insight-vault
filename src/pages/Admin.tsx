@@ -16,6 +16,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import ThemeToggle from "@/components/ThemeToggle";
+import LogoutConfirmDialog from "@/components/LogoutConfirmDialog";
 
 interface UserProfile {
   id: string;
@@ -40,6 +41,7 @@ const Admin = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [deletingUser, setDeletingUser] = useState<UserProfile | null>(null);
   const [deletingCode, setDeletingCode] = useState<LoginCode | null>(null);
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [newPassword, setNewPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [isChangingPassword, setIsChangingPassword] = useState(false);
@@ -144,9 +146,10 @@ const Admin = () => {
 
       if (error) throw error;
 
+      // Update local state immediately to remove only the deleted code
+      setLoginCodes(prev => prev.filter(code => code.id !== deletingCode.id));
       toast({ title: "Success", description: "Login code deleted successfully." });
       setDeletingCode(null);
-      fetchData();
     } catch (error: any) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
     }
@@ -235,7 +238,7 @@ const Admin = () => {
                 <Home className="w-4 h-4 mr-2" />
                 Home
               </Button>
-              <Button variant="outline" size="sm" onClick={handleSignOut}>
+              <Button variant="outline" size="sm" onClick={() => setShowLogoutConfirm(true)}>
                 <LogOut className="w-4 h-4 mr-2" />
                 Sign Out
               </Button>
@@ -572,6 +575,12 @@ const Admin = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <LogoutConfirmDialog
+        open={showLogoutConfirm}
+        onOpenChange={setShowLogoutConfirm}
+        onConfirm={handleSignOut}
+      />
     </div>
   );
 };
