@@ -110,17 +110,45 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       return { error };
     }
 
-    // Generate login code for password recovery
+    // Check profile status before generating login code
     if (data.user) {
-      // Delete previous login codes for this user before creating a new one
-      await supabase.from("login_codes").delete().eq("user_id", data.user.id);
+      const userProfile = await fetchProfile(data.user.id);
       
-      const loginCode = Math.random().toString(36).substring(2, 10).toUpperCase();
-      await supabase.from("login_codes").insert({
-        user_id: data.user.id,
-        code: loginCode,
-      });
-      return { error: null, loginCode };
+      // Check if user profile exists (account might have been deleted)
+      if (!userProfile) {
+        await supabase.auth.signOut();
+        return { 
+          error: new Error("Your account has been deleted by the admin.") 
+        };
+      }
+      
+      // Check profile status
+      if (userProfile.status === "pending") {
+        await supabase.auth.signOut();
+        return { 
+          error: new Error("Your account has not yet been approved by the admin. Please wait until it is admitted.") 
+        };
+      }
+      
+      if (userProfile.status === "disapproved") {
+        await supabase.auth.signOut();
+        return { 
+          error: new Error("Your account has been disapproved by the admin.") 
+        };
+      }
+      
+      // Only generate login code for approved users
+      if (userProfile.status === "approved") {
+        // Delete previous login codes for this user before creating a new one
+        await supabase.from("login_codes").delete().eq("user_id", data.user.id);
+        
+        const loginCode = Math.random().toString(36).substring(2, 10).toUpperCase();
+        await supabase.from("login_codes").insert({
+          user_id: data.user.id,
+          code: loginCode,
+        });
+        return { error: null, loginCode };
+      }
     }
 
     return { error: null };
