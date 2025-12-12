@@ -157,12 +157,10 @@ const Admin = () => {
 
   const handleChangePassword = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Password: exactly 4 characters, alphanumeric only
-    const passwordRegex = /^[a-zA-Z0-9]{4}$/;
-    if (!passwordRegex.test(newPassword)) {
+    if (newPassword.length < 6) {
       toast({ 
         title: "Error", 
-        description: "Password must be exactly 4 alphanumeric characters (no special characters).", 
+        description: "Password must be at least 6 characters.", 
         variant: "destructive" 
       });
       return;
