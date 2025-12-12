@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { Zap, Eye, EyeOff, Loader2, KeyRound } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -9,24 +9,28 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import ThemeToggle from "@/components/ThemeToggle";
+import WelcomeModal from "@/components/WelcomeModal";
 import { supabase } from "@/integrations/supabase/client";
 import { z } from "zod";
 
+// Password: exactly 4 characters, numbers allowed, no special characters
+const passwordRegex = /^[a-zA-Z0-9]{4}$/;
+
 const loginSchema = z.object({
   email: z.string().min(1, "Email is required"),
-  password: z.string().min(6, "Password must be at least 6 characters"),
+  password: z.string().regex(passwordRegex, "Password must be exactly 4 alphanumeric characters (no special characters)"),
 });
 
 const signupSchema = z.object({
   email: z.string().min(1, "Email is required"),
-  password: z.string().min(6, "Password must be at least 6 characters"),
+  password: z.string().regex(passwordRegex, "Password must be exactly 4 alphanumeric characters (no special characters)"),
   displayName: z.string().optional(),
 });
 
 const resetSchema = z.object({
   email: z.string().min(1, "Email is required"),
   resetCode: z.string().min(1, "Reset code is required"),
-  newPassword: z.string().min(6, "Password must be at least 6 characters"),
+  newPassword: z.string().regex(passwordRegex, "Password must be exactly 4 alphanumeric characters (no special characters)"),
 });
 
 const Auth = () => {
@@ -44,19 +48,47 @@ const Auth = () => {
   const [newPassword, setNewPassword] = useState("");
   const [showResetPassword, setShowResetPassword] = useState(false);
   
+  // Welcome modal states
+  const [showWelcomeModal, setShowWelcomeModal] = useState(false);
+  const [welcomeUser, setWelcomeUser] = useState<{ displayName: string | null; email: string } | null>(null);
+  const [pendingWelcome, setPendingWelcome] = useState(false);
+  
   const { toast } = useToast();
   const navigate = useNavigate();
   const { user, profile, isAdmin, signIn, signUp, isLoading: authLoading } = useAuth();
 
+  const handleWelcomeClose = useCallback(() => {
+    setShowWelcomeModal(false);
+    setWelcomeUser(null);
+    if (isAdmin) {
+      navigate("/admin");
+    } else {
+      navigate("/");
+    }
+  }, [isAdmin, navigate]);
+
+  // Show welcome modal once profile is loaded after login
   useEffect(() => {
-    if (user && !authLoading) {
+    if (pendingWelcome && profile && user) {
+      setWelcomeUser({ 
+        displayName: profile.display_name, 
+        email: profile.email 
+      });
+      setShowWelcomeModal(true);
+      setPendingWelcome(false);
+    }
+  }, [pendingWelcome, profile, user]);
+
+  useEffect(() => {
+    // Only auto-navigate if we're not showing the welcome modal
+    if (user && !authLoading && !showWelcomeModal && !welcomeUser && !pendingWelcome) {
       if (isAdmin) {
         navigate("/admin");
       } else if (profile?.status === "approved") {
         navigate("/");
       }
     }
-  }, [user, profile, isAdmin, authLoading, navigate]);
+  }, [user, profile, isAdmin, authLoading, navigate, showWelcomeModal, welcomeUser, pendingWelcome]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -89,6 +121,9 @@ const Auth = () => {
           title: "Login Successful",
           description: `Your login code: ${loginCode}`,
         });
+        
+        // Set pending welcome to show modal once profile is loaded
+        setPendingWelcome(true);
       }
     } catch (error: any) {
       toast({
@@ -253,7 +288,7 @@ const Auth = () => {
       <main className="flex-1 flex items-center justify-center p-4">
         <Card className="w-full max-w-md glass-panel">
           <CardHeader className="text-center">
-            <CardTitle className="text-2xl font-bold">Welcome</CardTitle>
+            <CardTitle className="text-2xl font-bold">Welcome to RTL SnapSolve</CardTitle>
             <CardDescription>Sign in to your account or create a new one</CardDescription>
           </CardHeader>
           <CardContent>
@@ -454,6 +489,16 @@ const Auth = () => {
           </CardContent>
         </Card>
       </main>
+
+      {/* Welcome Modal */}
+      {welcomeUser && (
+        <WelcomeModal
+          displayName={welcomeUser.displayName}
+          email={welcomeUser.email}
+          isOpen={showWelcomeModal}
+          onClose={handleWelcomeClose}
+        />
+      )}
     </div>
   );
 };
