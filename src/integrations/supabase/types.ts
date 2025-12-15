@@ -73,6 +73,39 @@ export type Database = {
           },
         ]
       }
+      installation_guides: {
+        Row: {
+          created_at: string
+          description: string
+          id: string
+          image_url: string | null
+          steps: string
+          title: string
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          description: string
+          id?: string
+          image_url?: string | null
+          steps: string
+          title: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          description?: string
+          id?: string
+          image_url?: string | null
+          steps?: string
+          title?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       login_codes: {
         Row: {
           code: string

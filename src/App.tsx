@@ -10,6 +10,7 @@ import Auth from "./pages/Auth";
 import Admin from "./pages/Admin";
 import Pending from "./pages/Pending";
 import NotFound from "./pages/NotFound";
+import InstallationGuides from "./pages/InstallationGuides";
 
 const queryClient = new QueryClient();
 
@@ -23,6 +24,7 @@ const App = () => (
           <BrowserRouter>
             <Routes>
               <Route path="/" element={<Index />} />
+              <Route path="/installation-guides" element={<InstallationGuides />} />
               <Route path="/auth" element={<Auth />} />
               <Route path="/admin" element={<Admin />} />
               <Route path="/pending" element={<Pending />} />
