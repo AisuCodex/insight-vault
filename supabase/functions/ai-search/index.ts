@@ -12,41 +12,127 @@ serve(async (req) => {
   }
 
   try {
-    const { query } = await req.json();
+    const { query, imageBase64, conversationHistory } = await req.json();
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     
     if (!LOVABLE_API_KEY) {
       throw new Error("LOVABLE_API_KEY is not configured");
     }
 
-    // Get all solutions from database
+    // Get all data from database
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
     
-    const { data: solutions, error: dbError } = await supabase
-      .from('solutions')
-      .select('*')
-      .order('created_at', { ascending: false });
+    // Fetch solutions, installation guides, and upgrades in parallel
+    const [solutionsResult, guidesResult, upgradesResult] = await Promise.all([
+      supabase.from('solutions').select('*').order('created_at', { ascending: false }),
+      supabase.from('installation_guides').select('*').order('created_at', { ascending: false }),
+      supabase.from('upgrades').select('*').order('created_at', { ascending: false })
+    ]);
 
-    if (dbError) {
-      console.error("Database error:", dbError);
-      throw new Error("Failed to fetch solutions");
-    }
+    const solutions = solutionsResult.data || [];
+    const guides = guidesResult.data || [];
+    const upgrades = upgradesResult.data || [];
 
-    if (!solutions || solutions.length === 0) {
+    if (solutions.length === 0 && guides.length === 0 && upgrades.length === 0) {
       return new Response(JSON.stringify({ 
-        answer: "No solutions have been added to the knowledge base yet. Add some solutions first to enable AI-powered search.",
+        answer: "No content has been added to the knowledge base yet. Add some solutions, installation guides, or upgrades first to enable AI-powered search.",
         relevantSolutions: []
       }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    // Create context from solutions
+    // Create context from all sources
     const solutionsContext = solutions.map((s, i) => 
-      `[Solution ${i + 1}]\nTitle: ${s.title}\nDescription: ${s.description}\nID: ${s.id}`
+      `[Solution ${i + 1}]\nTitle: ${s.title}\nDescription: ${s.description}\nID: ${s.id}\nType: solution`
     ).join('\n\n');
+
+    const guidesContext = guides.map((g, i) => 
+      `[Installation Guide ${i + 1}]\nTitle: ${g.title}\nDescription: ${g.description}\nSteps: ${g.steps}\nID: ${g.id}\nType: installation_guide`
+    ).join('\n\n');
+
+    const upgradesContext = upgrades.map((u, i) => 
+      `[Upgrade ${i + 1}]\nTitle: ${u.title}\nDescription: ${u.description}\nSteps: ${u.steps}\nID: ${u.id}\nType: upgrade`
+    ).join('\n\n');
+
+    const fullContext = [solutionsContext, guidesContext, upgradesContext].filter(Boolean).join('\n\n---\n\n');
+
+    // Build conversation history for context
+    const historyMessages = conversationHistory?.map((m: any) => ({
+      role: m.role,
+      content: m.content
+    })) || [];
+
+    // Build the user message content (with optional image)
+    let userContent: any = query;
+    if (imageBase64) {
+      userContent = [
+        { type: "text", text: query || "Please analyze this image and identify any errors or issues shown. Then provide solutions from the knowledge base." },
+        { type: "image_url", image_url: { url: imageBase64 } }
+      ];
+    }
+
+    const systemPrompt = `You are RTLAI, a smart tech support assistant for RTL SnapSolve knowledge base. You help users solve problems, install software, and perform upgrades.
+
+## Knowledge Base Content:
+
+${fullContext}
+
+## Response Rules:
+
+1. **Context Awareness**: Pay close attention to the conversation history. When users ask follow-up questions, understand they're referencing previous topics. Never ask for clarification if the context is clear from earlier messages.
+
+2. **Structured Responses**: Always format your answers as clear, actionable guides:
+   - Use numbered steps (1, 2, 3...)
+   - Add section headers when covering multiple topics
+   - Use bullet points for lists of options or notes
+   - Separate "Required Steps" from "Optional Steps"
+   - Highlight warnings or important notes
+
+3. **Response Style**:
+   - Be direct and concise
+   - Write for non-technical users
+   - No markdown asterisks or special formatting
+   - Maximum 200 words unless detailed steps are needed
+
+4. **When Analyzing Images**:
+   - Identify the error or issue shown
+   - Provide the PRIMARY solution first with clear steps
+   - Then provide ALTERNATIVE solutions in a separate section
+   - Reference relevant solutions from the knowledge base
+
+5. **Example Response Format**:
+   "Issue Identified: [brief description]
+   
+   Primary Solution:
+   1. First step here
+   2. Second step here
+   3. Third step here
+   
+   Alternative Solutions:
+   - Option A: Brief description
+   - Option B: Brief description
+   
+   Note: [Any important warnings or tips]"
+
+6. **If no matching solution exists**:
+   - Say so clearly
+   - Suggest related topics if available
+   - Ask for more details if needed
+
+Format response as JSON:
+{
+  "answer": "Your structured response here",
+  "relevantIds": ["id1", "id2"]
+}`;
+
+    const messages = [
+      { role: "system", content: systemPrompt },
+      ...historyMessages,
+      { role: "user", content: userContent }
+    ];
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -55,52 +141,8 @@ serve(async (req) => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
-        messages: [
-          { 
-            role: "system", 
-            content: `You are RTLAI, a friendly tech support assistant for RTL SnapSolve knowledge base. Your job is to help users fix problems using simple, easy-to-follow steps.
-
-Available solutions in the database:
-
-${solutionsContext}
-
-## Response Rules:
-
-1. Find the best matching solution based on what the user asked.
-
-2. When giving steps, follow this format:
-   - Keep it SHORT and SIMPLE
-   - Use numbered steps (1, 2, 3...)
-   - Write like you're talking to someone who isn't tech-savvy
-   - NO asterisks (*) or markdown formatting
-   - Use plain, everyday words
-
-3. Example response style:
-   "Here's how to fix your license error:
-   1. Close the program completely
-   2. Go to Settings, then click License
-   3. Click the Refresh button
-   4. Wait 10 seconds and try again
-   That should do it! Let me know if it works."
-
-4. Be friendly and direct:
-   - If you need more info, just ask
-   - Keep answers under 150 words when possible
-   - Always mention which solution you're using
-
-5. If no solution matches:
-   - Say so nicely
-   - Ask for more details
-
-Format response as JSON:
-{
-  "answer": "Your simple, friendly response here",
-  "relevantIds": ["id1", "id2"]
-}`
-          },
-          { role: "user", content: query }
-        ],
+        model: imageBase64 ? "google/gemini-2.5-flash" : "google/gemini-2.5-flash",
+        messages,
       }),
     });
 
@@ -141,7 +183,7 @@ Format response as JSON:
       parsedResponse = { answer: aiContent, relevantIds: [] };
     }
 
-    // Get the relevant solutions
+    // Get the relevant solutions (only from solutions table for highlighting)
     const relevantSolutions = solutions.filter(s => 
       parsedResponse.relevantIds?.includes(s.id)
     );

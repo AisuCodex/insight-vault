@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { Sparkles, Send, Loader2, ChevronDown, ChevronUp, User, Bot, Plus, MessageSquare, Trash2 } from "lucide-react";
+import { Sparkles, Send, Loader2, ChevronDown, ChevronUp, User, Bot, Plus, MessageSquare, Trash2, Image, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
@@ -18,6 +18,7 @@ interface Message {
   id: string;
   role: "user" | "assistant";
   content: string;
+  imageUrl?: string;
   relevantSolutions?: Solution[];
   timestamp: Date;
 }
@@ -40,10 +41,13 @@ const AIQueryPanel = ({ onSelectSolution }: AIQueryPanelProps) => {
   const [isLoading, setIsLoading] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
+  const [uploadedImage, setUploadedImage] = useState<string | null>(null);
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
   const { toast } = useToast();
   const { user, isApproved } = useAuth();
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Fetch conversations for authenticated users
   useEffect(() => {
@@ -97,33 +101,11 @@ const AIQueryPanel = ({ onSelectSolution }: AIQueryPanelProps) => {
     }
   };
 
-  const createNewConversation = async () => {
-    if (!user) {
-      setMessages([]);
-      setCurrentConversationId(null);
-      return;
-    }
-
-    const { data, error } = await supabase
-      .from("ai_conversations")
-      .insert({
-        user_id: user.id,
-        title: "New Conversation",
-      })
-      .select()
-      .single();
-
-    if (!error && data) {
-      setCurrentConversationId(data.id);
-      setMessages([]);
-      fetchConversations();
-    }
-  };
-
   const handleNewConversation = () => {
     setMessages([]);
     setCurrentConversationId(null);
     setShowHistory(false);
+    setUploadedImage(null);
   };
 
   const deleteConversation = async (conversationId: string, e: React.MouseEvent) => {
@@ -143,18 +125,71 @@ const AIQueryPanel = ({ onSelectSolution }: AIQueryPanelProps) => {
     }
   };
 
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      toast({
+        title: "Invalid file",
+        description: "Please upload an image file.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      toast({
+        title: "File too large",
+        description: "Please upload an image smaller than 5MB.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsUploadingImage(true);
+    try {
+      // Convert to base64 for AI analysis
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const base64 = reader.result as string;
+        setUploadedImage(base64);
+        setIsUploadingImage(false);
+      };
+      reader.readAsDataURL(file);
+    } catch (error) {
+      console.error("Error processing image:", error);
+      toast({
+        title: "Upload failed",
+        description: "Failed to process image.",
+        variant: "destructive",
+      });
+      setIsUploadingImage(false);
+    }
+  };
+
+  const removeUploadedImage = () => {
+    setUploadedImage(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
+
   const handleSubmit = async () => {
-    if (!query.trim() || isLoading) return;
+    if ((!query.trim() && !uploadedImage) || isLoading) return;
 
     const userMessage: Message = {
       id: crypto.randomUUID(),
       role: "user",
-      content: query.trim(),
+      content: query.trim() || "Please analyze this image",
+      imageUrl: uploadedImage || undefined,
       timestamp: new Date(),
     };
 
     setMessages((prev) => [...prev, userMessage]);
     setQuery("");
+    const currentImage = uploadedImage;
+    setUploadedImage(null);
     setIsLoading(true);
 
     // Create conversation if authenticated and no current conversation
@@ -189,6 +224,7 @@ const AIQueryPanel = ({ onSelectSolution }: AIQueryPanelProps) => {
       const { data, error } = await supabase.functions.invoke('ai-search', {
         body: { 
           query: userMessage.content,
+          imageBase64: currentImage,
           conversationHistory: messages.map(m => ({
             role: m.role,
             content: m.content
@@ -247,6 +283,47 @@ const AIQueryPanel = ({ onSelectSolution }: AIQueryPanelProps) => {
     return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   };
 
+  // Format AI response with proper sections
+  const formatResponse = (content: string) => {
+    // Split by common section markers
+    const lines = content.split('\n');
+    return lines.map((line, index) => {
+      // Check for numbered steps
+      if (/^\d+\.\s/.test(line.trim())) {
+        return (
+          <div key={index} className="flex gap-2 my-1">
+            <span className="flex-shrink-0 w-5 h-5 rounded-full bg-primary/10 text-primary text-xs flex items-center justify-center font-medium">
+              {line.trim().match(/^(\d+)/)?.[1]}
+            </span>
+            <span>{line.trim().replace(/^\d+\.\s*/, '')}</span>
+          </div>
+        );
+      }
+      // Check for section headers (lines ending with :)
+      if (line.trim().endsWith(':') && line.trim().length < 50) {
+        return (
+          <h4 key={index} className="font-semibold text-foreground mt-3 mb-1">
+            {line.trim()}
+          </h4>
+        );
+      }
+      // Check for bullet points
+      if (/^[-•]\s/.test(line.trim())) {
+        return (
+          <div key={index} className="flex gap-2 my-0.5 pl-2">
+            <span className="text-primary">•</span>
+            <span>{line.trim().replace(/^[-•]\s*/, '')}</span>
+          </div>
+        );
+      }
+      // Regular text
+      if (line.trim()) {
+        return <p key={index} className="my-1">{line}</p>;
+      }
+      return <div key={index} className="h-2" />;
+    });
+  };
+
   return (
     <div className="glass-panel rounded-2xl overflow-hidden">
       <button
@@ -262,7 +339,7 @@ const AIQueryPanel = ({ onSelectSolution }: AIQueryPanelProps) => {
             <p className="text-xs text-muted-foreground">
               {messages.length > 0 
                 ? `${messages.length} messages in conversation`
-                : "Ask me anything about your solutions"
+                : "Ask me anything or upload an image to analyze"
               }
             </p>
           </div>
@@ -275,7 +352,7 @@ const AIQueryPanel = ({ onSelectSolution }: AIQueryPanelProps) => {
       </button>
 
       {isExpanded && (
-        <div className="animate-fade-in flex flex-col" style={{ height: '450px' }}>
+        <div className="animate-fade-in flex flex-col" style={{ height: '500px' }}>
           {/* Toolbar */}
           <div className="px-4 py-2 border-b border-border/50 flex items-center gap-2">
             <Button
@@ -353,7 +430,7 @@ const AIQueryPanel = ({ onSelectSolution }: AIQueryPanelProps) => {
                       Start a conversation by asking a question
                     </p>
                     <p className="text-xs text-muted-foreground/70 mt-1">
-                      e.g., "How do I fix the printer not connecting?"
+                      You can also upload error screenshots for analysis
                     </p>
                   </div>
                 ) : (
@@ -376,15 +453,32 @@ const AIQueryPanel = ({ onSelectSolution }: AIQueryPanelProps) => {
                       </div>
 
                       {/* Message Bubble */}
-                      <div className={`flex flex-col max-w-[75%] ${message.role === 'user' ? 'items-end' : 'items-start'}`}>
+                      <div className={`flex flex-col max-w-[80%] ${message.role === 'user' ? 'items-end' : 'items-start'}`}>
+                        {/* User uploaded image */}
+                        {message.imageUrl && (
+                          <div className="mb-2 rounded-lg overflow-hidden max-w-[200px]">
+                            <img 
+                              src={message.imageUrl} 
+                              alt="Uploaded" 
+                              className="w-full h-auto"
+                            />
+                          </div>
+                        )}
+                        
                         <div className={`rounded-2xl px-4 py-2.5 ${
                           message.role === 'user'
                             ? 'bg-primary text-primary-foreground rounded-br-md'
                             : 'bg-muted rounded-bl-md'
                         }`}>
-                          <p className="text-sm leading-relaxed whitespace-pre-wrap">
-                            {message.content}
-                          </p>
+                          {message.role === 'assistant' ? (
+                            <div className="text-sm leading-relaxed">
+                              {formatResponse(message.content)}
+                            </div>
+                          ) : (
+                            <p className="text-sm leading-relaxed whitespace-pre-wrap">
+                              {message.content}
+                            </p>
+                          )}
                         </div>
 
                         {/* Relevant Solutions */}
@@ -439,28 +533,69 @@ const AIQueryPanel = ({ onSelectSolution }: AIQueryPanelProps) => {
           {/* Input Area */}
           {!showHistory && (
             <div className="p-4 border-t border-border/50 bg-background/50">
-              <div className="relative">
-                <Textarea
-                  ref={inputRef}
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                  onKeyDown={handleKeyDown}
-                  placeholder="Type your message..."
-                  className="min-h-[48px] max-h-[120px] pr-12 resize-none rounded-xl"
-                  disabled={isLoading}
+              {/* Image Preview */}
+              {uploadedImage && (
+                <div className="mb-3 relative inline-block">
+                  <img 
+                    src={uploadedImage} 
+                    alt="Upload preview" 
+                    className="h-20 w-auto rounded-lg"
+                  />
+                  <Button
+                    variant="destructive"
+                    size="icon"
+                    className="absolute -top-2 -right-2 h-6 w-6 rounded-full"
+                    onClick={removeUploadedImage}
+                  >
+                    <X className="h-3 w-3" />
+                  </Button>
+                </div>
+              )}
+              
+              <div className="relative flex gap-2">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={handleImageUpload}
                 />
                 <Button
-                  onClick={handleSubmit}
-                  disabled={!query.trim() || isLoading}
+                  variant="outline"
                   size="icon"
-                  className="absolute bottom-2 right-2 h-8 w-8 rounded-lg"
+                  className="h-[48px] w-[48px] flex-shrink-0"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={isLoading || isUploadingImage}
                 >
-                  {isLoading ? (
+                  {isUploadingImage ? (
                     <Loader2 className="w-4 h-4 animate-spin" />
                   ) : (
-                    <Send className="w-4 h-4" />
+                    <Image className="w-4 h-4" />
                   )}
                 </Button>
+                <div className="relative flex-1">
+                  <Textarea
+                    ref={inputRef}
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                    onKeyDown={handleKeyDown}
+                    placeholder={uploadedImage ? "Describe what you want to analyze..." : "Type your message..."}
+                    className="min-h-[48px] max-h-[120px] pr-12 resize-none rounded-xl"
+                    disabled={isLoading}
+                  />
+                  <Button
+                    onClick={handleSubmit}
+                    disabled={(!query.trim() && !uploadedImage) || isLoading}
+                    size="icon"
+                    className="absolute bottom-2 right-2 h-8 w-8 rounded-lg"
+                  >
+                    {isLoading ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Send className="w-4 h-4" />
+                    )}
+                  </Button>
+                </div>
               </div>
             </div>
           )}
