@@ -11,6 +11,7 @@ import Admin from "./pages/Admin";
 import Pending from "./pages/Pending";
 import NotFound from "./pages/NotFound";
 import InstallationGuides from "./pages/InstallationGuides";
+import Upgrades from "./pages/Upgrades";
 
 const queryClient = new QueryClient();
 
@@ -25,6 +26,7 @@ const App = () => (
             <Routes>
               <Route path="/" element={<Index />} />
               <Route path="/installation-guides" element={<InstallationGuides />} />
+              <Route path="/upgrades" element={<Upgrades />} />
               <Route path="/auth" element={<Auth />} />
               <Route path="/admin" element={<Admin />} />
               <Route path="/pending" element={<Pending />} />

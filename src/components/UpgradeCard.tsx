@@ -4,10 +4,11 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
-interface SolutionCardProps {
+interface UpgradeCardProps {
   id: string;
   title: string;
   description: string;
+  steps: string;
   imageUrl?: string | null;
   createdAt: string;
   searchQuery?: string;
@@ -36,20 +37,19 @@ const highlightText = (text: string, query: string) => {
   });
 };
 
-const DESCRIPTION_PREVIEW_LENGTH = 150;
-
-const SolutionCard = ({
+const UpgradeCard = ({
   id,
   title,
   description,
+  steps,
   imageUrl,
   createdAt,
   searchQuery = "",
   onEdit,
   onDelete,
-}: SolutionCardProps) => {
+}: UpgradeCardProps) => {
   const [imageOpen, setImageOpen] = useState(false);
-  const [isExpanded, setIsExpanded] = useState(false);
+  const [isStepsOpen, setIsStepsOpen] = useState(false);
   const canModify = onEdit || onDelete;
 
   const formattedDate = new Date(createdAt).toLocaleDateString('en-US', {
@@ -58,10 +58,7 @@ const SolutionCard = ({
     year: 'numeric'
   });
 
-  const isLongDescription = description.length > DESCRIPTION_PREVIEW_LENGTH;
-  const previewDescription = isLongDescription 
-    ? description.slice(0, DESCRIPTION_PREVIEW_LENGTH) + "..." 
-    : description;
+  const stepsArray = steps.split('\n').filter(step => step.trim());
 
   return (
     <div className="group glass-panel rounded-2xl overflow-hidden hover-lift">
@@ -102,35 +99,39 @@ const SolutionCard = ({
           </span>
         </div>
         
-        {isLongDescription ? (
-          <Collapsible open={isExpanded} onOpenChange={setIsExpanded}>
-            <div className="text-muted-foreground text-sm leading-relaxed mb-2">
-              {!isExpanded && highlightText(previewDescription, searchQuery)}
-              <CollapsibleContent>
-                {highlightText(description, searchQuery)}
-              </CollapsibleContent>
+        <p className="text-muted-foreground text-sm leading-relaxed mb-4">
+          {highlightText(description, searchQuery)}
+        </p>
+
+        {/* Collapsible Steps */}
+        <Collapsible open={isStepsOpen} onOpenChange={setIsStepsOpen}>
+          <CollapsibleTrigger asChild>
+            <Button variant="ghost" size="sm" className="w-full justify-between mb-2">
+              <span className="text-sm font-medium">
+                Upgrade Steps ({stepsArray.length})
+              </span>
+              {isStepsOpen ? (
+                <ChevronUp className="h-4 w-4" />
+              ) : (
+                <ChevronDown className="h-4 w-4" />
+              )}
+            </Button>
+          </CollapsibleTrigger>
+          <CollapsibleContent className="space-y-2">
+            <div className="bg-muted/30 rounded-lg p-3 space-y-2">
+              {stepsArray.map((step, index) => (
+                <div key={index} className="flex gap-2 text-sm">
+                  <span className="flex-shrink-0 w-6 h-6 rounded-full bg-primary/10 text-primary text-xs flex items-center justify-center font-medium">
+                    {index + 1}
+                  </span>
+                  <span className="text-muted-foreground leading-relaxed pt-0.5">
+                    {highlightText(step.trim(), searchQuery)}
+                  </span>
+                </div>
+              ))}
             </div>
-            <CollapsibleTrigger asChild>
-              <Button variant="ghost" size="sm" className="h-7 px-2 text-xs text-primary">
-                {isExpanded ? (
-                  <>
-                    <ChevronUp className="w-3 h-3 mr-1" />
-                    Show less
-                  </>
-                ) : (
-                  <>
-                    <ChevronDown className="w-3 h-3 mr-1" />
-                    Read more
-                  </>
-                )}
-              </Button>
-            </CollapsibleTrigger>
-          </Collapsible>
-        ) : (
-          <p className="text-muted-foreground text-sm leading-relaxed mb-4">
-            {highlightText(description, searchQuery)}
-          </p>
-        )}
+          </CollapsibleContent>
+        </Collapsible>
         
         {canModify && (
           <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 mt-3">
@@ -162,4 +163,4 @@ const SolutionCard = ({
   );
 };
 
-export default SolutionCard;
+export default UpgradeCard;

@@ -1,37 +1,36 @@
 import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { Plus, Zap, LogOut, Shield, User as UserIcon, BookOpen, ArrowUp } from "lucide-react";
+import { Plus, LogOut, Shield, User as UserIcon, ArrowUp, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
-import SolutionCard from "@/components/SolutionCard";
-import SolutionForm from "@/components/SolutionForm";
+import UpgradeCard from "@/components/UpgradeCard";
+import UpgradeForm from "@/components/UpgradeForm";
 import SearchBar from "@/components/SearchBar";
-import AIQueryPanel from "@/components/AIQueryPanel";
-import EmptyState from "@/components/EmptyState";
 import ThemeToggle from "@/components/ThemeToggle";
 import LogoutConfirmDialog from "@/components/LogoutConfirmDialog";
 
-interface Solution {
+interface Upgrade {
   id: string;
   title: string;
   description: string;
+  steps: string;
   image_url: string | null;
   created_at: string;
   updated_at: string;
   user_id: string | null;
 }
 
-const Index = () => {
-  const [solutions, setSolutions] = useState<Solution[]>([]);
+const Upgrades = () => {
+  const [upgrades, setUpgrades] = useState<Upgrade[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [isFormOpen, setIsFormOpen] = useState(false);
-  const [editingSolution, setEditingSolution] = useState<Solution | null>(null);
-  const [deletingSolution, setDeletingSolution] = useState<Solution | null>(null);
+  const [editingUpgrade, setEditingUpgrade] = useState<Upgrade | null>(null);
+  const [deletingUpgrade, setDeletingUpgrade] = useState<Upgrade | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const { toast } = useToast();
@@ -45,20 +44,20 @@ const Index = () => {
     }
   }, [user, profile, isApproved, isAdmin, authLoading, navigate]);
 
-  const fetchSolutions = async () => {
+  const fetchUpgrades = async () => {
     try {
       const { data, error } = await supabase
-        .from('solutions')
+        .from('upgrades')
         .select('*')
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setSolutions(data || []);
+      setUpgrades(data || []);
     } catch (error: any) {
-      console.error('Error fetching solutions:', error);
+      console.error('Error fetching upgrades:', error);
       toast({
         title: "Error",
-        description: "Failed to load solutions.",
+        description: "Failed to load upgrades.",
         variant: "destructive",
       });
     } finally {
@@ -67,25 +66,26 @@ const Index = () => {
   };
 
   useEffect(() => {
-    fetchSolutions();
+    fetchUpgrades();
   }, []);
 
-  const filteredSolutions = useMemo(() => {
-    if (!searchQuery.trim()) return solutions;
+  const filteredUpgrades = useMemo(() => {
+    if (!searchQuery.trim()) return upgrades;
     
     const query = searchQuery.toLowerCase();
-    return solutions.filter(
-      (s) =>
-        s.title.toLowerCase().includes(query) ||
-        s.description.toLowerCase().includes(query)
+    return upgrades.filter(
+      (u) =>
+        u.title.toLowerCase().includes(query) ||
+        u.description.toLowerCase().includes(query) ||
+        u.steps.toLowerCase().includes(query)
     );
-  }, [solutions, searchQuery]);
+  }, [upgrades, searchQuery]);
 
-  const handleAddSolution = async (data: { title: string; description: string; imageUrl: string | null }) => {
+  const handleAddUpgrade = async (data: { title: string; description: string; steps: string; imageUrl: string | null }) => {
     if (!user) {
       toast({
         title: "Error",
-        description: "You must be logged in to add solutions.",
+        description: "You must be logged in to add upgrades.",
         variant: "destructive",
       });
       return;
@@ -94,10 +94,11 @@ const Index = () => {
     setIsSubmitting(true);
     try {
       const { error } = await supabase
-        .from('solutions')
+        .from('upgrades')
         .insert({
           title: data.title,
           description: data.description,
+          steps: data.steps,
           image_url: data.imageUrl,
           user_id: user.id,
         });
@@ -106,15 +107,15 @@ const Index = () => {
 
       toast({
         title: "Success",
-        description: "Solution added successfully.",
+        description: "Upgrade added successfully.",
       });
       setIsFormOpen(false);
-      fetchSolutions();
+      fetchUpgrades();
     } catch (error: any) {
-      console.error('Error adding solution:', error);
+      console.error('Error adding upgrade:', error);
       toast({
         title: "Error",
-        description: "Failed to add solution.",
+        description: "Failed to add upgrade.",
         variant: "destructive",
       });
     } finally {
@@ -122,33 +123,34 @@ const Index = () => {
     }
   };
 
-  const handleUpdateSolution = async (data: { title: string; description: string; imageUrl: string | null }) => {
-    if (!editingSolution) return;
+  const handleUpdateUpgrade = async (data: { title: string; description: string; steps: string; imageUrl: string | null }) => {
+    if (!editingUpgrade) return;
     
     setIsSubmitting(true);
     try {
       const { error } = await supabase
-        .from('solutions')
+        .from('upgrades')
         .update({
           title: data.title,
           description: data.description,
+          steps: data.steps,
           image_url: data.imageUrl,
         })
-        .eq('id', editingSolution.id);
+        .eq('id', editingUpgrade.id);
 
       if (error) throw error;
 
       toast({
         title: "Success",
-        description: "Solution updated successfully.",
+        description: "Upgrade updated successfully.",
       });
-      setEditingSolution(null);
-      fetchSolutions();
+      setEditingUpgrade(null);
+      fetchUpgrades();
     } catch (error: any) {
-      console.error('Error updating solution:', error);
+      console.error('Error updating upgrade:', error);
       toast({
         title: "Error",
-        description: "Failed to update solution.",
+        description: "Failed to update upgrade.",
         variant: "destructive",
       });
     } finally {
@@ -156,41 +158,30 @@ const Index = () => {
     }
   };
 
-  const handleDeleteSolution = async () => {
-    if (!deletingSolution) return;
+  const handleDeleteUpgrade = async () => {
+    if (!deletingUpgrade) return;
     
     try {
       const { error } = await supabase
-        .from('solutions')
+        .from('upgrades')
         .delete()
-        .eq('id', deletingSolution.id);
+        .eq('id', deletingUpgrade.id);
 
       if (error) throw error;
 
       toast({
         title: "Success",
-        description: "Solution deleted successfully.",
+        description: "Upgrade deleted successfully.",
       });
-      setDeletingSolution(null);
-      fetchSolutions();
+      setDeletingUpgrade(null);
+      fetchUpgrades();
     } catch (error: any) {
-      console.error('Error deleting solution:', error);
+      console.error('Error deleting upgrade:', error);
       toast({
         title: "Error",
-        description: "Failed to delete solution.",
+        description: "Failed to delete upgrade.",
         variant: "destructive",
       });
-    }
-  };
-
-  const handleSelectSolution = (id: string) => {
-    const element = document.getElementById(`solution-${id}`);
-    if (element) {
-      element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      element.classList.add('ring-2', 'ring-primary', 'ring-offset-2');
-      setTimeout(() => {
-        element.classList.remove('ring-2', 'ring-primary', 'ring-offset-2');
-      }, 2000);
     }
   };
 
@@ -199,13 +190,13 @@ const Index = () => {
     navigate("/auth");
   };
 
-  const canModifySolution = (solution: Solution) => {
+  const canModifyUpgrade = (upgrade: Upgrade) => {
     if (!user) return false;
     if (isAdmin) return true;
-    return solution.user_id === user.id;
+    return upgrade.user_id === user.id;
   };
 
-  const canAddSolution = user && (isApproved || isAdmin);
+  const canAddUpgrade = user && (isApproved || isAdmin);
 
   return (
     <div className="min-h-screen bg-background">
@@ -215,20 +206,16 @@ const Index = () => {
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center gap-3">
               <div className="w-9 h-9 rounded-xl bg-primary flex items-center justify-center">
-                <Zap className="w-5 h-5 text-primary-foreground" />
+                <ArrowUp className="w-5 h-5 text-primary-foreground" />
               </div>
               <h1 className="text-xl font-semibold text-foreground">
-                RTL SnapSolve
+                Upgrades
               </h1>
             </div>
             <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm" onClick={() => navigate("/installation-guides")}>
-                <BookOpen className="w-4 h-4 mr-2" />
-                Guides
-              </Button>
-              <Button variant="outline" size="sm" onClick={() => navigate("/upgrades")}>
-                <ArrowUp className="w-4 h-4 mr-2" />
-                Upgrades
+              <Button variant="outline" size="sm" onClick={() => navigate("/")}>
+                <ArrowLeft className="w-4 h-4 mr-2" />
+                Solutions
               </Button>
               <ThemeToggle />
               {user ? (
@@ -239,10 +226,10 @@ const Index = () => {
                       Admin
                     </Button>
                   )}
-                  {canAddSolution && (
+                  {canAddUpgrade && (
                     <Button onClick={() => setIsFormOpen(true)} className="h-10 px-4">
                       <Plus className="w-4 h-4 mr-2" />
-                      New Solution
+                      New Upgrade
                     </Button>
                   )}
                   <Button variant="outline" size="sm" onClick={() => setShowLogoutConfirm(true)}>
@@ -264,30 +251,25 @@ const Index = () => {
       {/* Main Content */}
       <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="space-y-6">
-          {/* Search & AI Panel */}
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="md:col-span-1">
-              <SearchBar
-                value={searchQuery}
-                onChange={setSearchQuery}
-                placeholder="Search by title or description..."
-              />
-            </div>
-            <div className="md:col-span-1">
-              <AIQueryPanel onSelectSolution={handleSelectSolution} />
-            </div>
+          {/* Search */}
+          <div className="max-w-md">
+            <SearchBar
+              value={searchQuery}
+              onChange={setSearchQuery}
+              placeholder="Search upgrades..."
+            />
           </div>
 
           {/* Results Count */}
-          {!isLoading && solutions.length > 0 && (
+          {!isLoading && upgrades.length > 0 && (
             <p className="text-sm text-muted-foreground">
-              {filteredSolutions.length === solutions.length
-                ? `${solutions.length} solution${solutions.length !== 1 ? 's' : ''}`
-                : `${filteredSolutions.length} of ${solutions.length} solutions`}
+              {filteredUpgrades.length === upgrades.length
+                ? `${upgrades.length} upgrade${upgrades.length !== 1 ? 's' : ''}`
+                : `${filteredUpgrades.length} of ${upgrades.length} upgrades`}
             </p>
           )}
 
-          {/* Solutions Grid */}
+          {/* Upgrades Grid */}
           {isLoading ? (
             <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
               {[...Array(6)].map((_, i) => (
@@ -303,30 +285,44 @@ const Index = () => {
                 </div>
               ))}
             </div>
-          ) : solutions.length === 0 ? (
-            <EmptyState onAddNew={canAddSolution ? () => setIsFormOpen(true) : undefined} />
-          ) : filteredSolutions.length === 0 ? (
+          ) : upgrades.length === 0 ? (
+            <div className="text-center py-16">
+              <div className="w-16 h-16 rounded-2xl bg-muted flex items-center justify-center mx-auto mb-4">
+                <ArrowUp className="w-8 h-8 text-muted-foreground" />
+              </div>
+              <h3 className="text-lg font-medium text-foreground mb-2">No upgrades yet</h3>
+              <p className="text-muted-foreground mb-6">
+                Add step-by-step upgrade procedures for RTL software versions.
+              </p>
+              {canAddUpgrade && (
+                <Button onClick={() => setIsFormOpen(true)}>
+                  <Plus className="w-4 h-4 mr-2" />
+                  Add First Upgrade
+                </Button>
+              )}
+            </div>
+          ) : filteredUpgrades.length === 0 ? (
             <div className="text-center py-12">
-              <p className="text-muted-foreground">No solutions match your search.</p>
+              <p className="text-muted-foreground">No upgrades match your search.</p>
             </div>
           ) : (
             <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-              {filteredSolutions.map((solution, index) => (
+              {filteredUpgrades.map((upgrade, index) => (
                 <div
-                  key={solution.id}
-                  id={`solution-${solution.id}`}
+                  key={upgrade.id}
                   className="animate-fade-in transition-all duration-300"
                   style={{ animationDelay: `${index * 50}ms` }}
                 >
-                  <SolutionCard
-                    id={solution.id}
-                    title={solution.title}
-                    description={solution.description}
-                    imageUrl={solution.image_url}
-                    createdAt={solution.created_at}
+                  <UpgradeCard
+                    id={upgrade.id}
+                    title={upgrade.title}
+                    description={upgrade.description}
+                    steps={upgrade.steps}
+                    imageUrl={upgrade.image_url}
+                    createdAt={upgrade.created_at}
                     searchQuery={searchQuery}
-                    onEdit={canModifySolution(solution) ? () => setEditingSolution(solution) : undefined}
-                    onDelete={canModifySolution(solution) ? () => setDeletingSolution(solution) : undefined}
+                    onEdit={canModifyUpgrade(upgrade) ? () => setEditingUpgrade(upgrade) : undefined}
+                    onDelete={canModifyUpgrade(upgrade) ? () => setDeletingUpgrade(upgrade) : undefined}
                   />
                 </div>
               ))}
@@ -335,36 +331,37 @@ const Index = () => {
         </div>
       </main>
 
-      {/* Add Solution Dialog */}
+      {/* Add Upgrade Dialog */}
       <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
-        <DialogContent className="sm:max-w-lg">
+        <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Add New Solution</DialogTitle>
+            <DialogTitle>Add Upgrade</DialogTitle>
           </DialogHeader>
-          <SolutionForm
-            onSubmit={handleAddSolution}
+          <UpgradeForm
+            onSubmit={handleAddUpgrade}
             onCancel={() => setIsFormOpen(false)}
             isLoading={isSubmitting}
           />
         </DialogContent>
       </Dialog>
 
-      {/* Edit Solution Dialog */}
-      <Dialog open={!!editingSolution} onOpenChange={() => setEditingSolution(null)}>
-        <DialogContent className="sm:max-w-lg">
+      {/* Edit Upgrade Dialog */}
+      <Dialog open={!!editingUpgrade} onOpenChange={() => setEditingUpgrade(null)}>
+        <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Edit Solution</DialogTitle>
+            <DialogTitle>Edit Upgrade</DialogTitle>
           </DialogHeader>
-          {editingSolution && (
-            <SolutionForm
+          {editingUpgrade && (
+            <UpgradeForm
               initialData={{
-                id: editingSolution.id,
-                title: editingSolution.title,
-                description: editingSolution.description,
-                imageUrl: editingSolution.image_url,
+                id: editingUpgrade.id,
+                title: editingUpgrade.title,
+                description: editingUpgrade.description,
+                steps: editingUpgrade.steps,
+                imageUrl: editingUpgrade.image_url,
               }}
-              onSubmit={handleUpdateSolution}
-              onCancel={() => setEditingSolution(null)}
+              onSubmit={handleUpdateUpgrade}
+              onCancel={() => setEditingUpgrade(null)}
               isLoading={isSubmitting}
             />
           )}
@@ -372,18 +369,18 @@ const Index = () => {
       </Dialog>
 
       {/* Delete Confirmation Dialog */}
-      <AlertDialog open={!!deletingSolution} onOpenChange={() => setDeletingSolution(null)}>
+      <AlertDialog open={!!deletingUpgrade} onOpenChange={() => setDeletingUpgrade(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete Solution</AlertDialogTitle>
+            <AlertDialogTitle>Delete Upgrade</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete "{deletingSolution?.title}"? This action cannot be undone.
+              Are you sure you want to delete "{deletingUpgrade?.title}"? This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
-              onClick={handleDeleteSolution}
+              onClick={handleDeleteUpgrade}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               Delete
@@ -401,4 +398,4 @@ const Index = () => {
   );
 };
 
-export default Index;
+export default Upgrades;
